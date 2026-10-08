@@ -99,10 +99,10 @@ Metode ini membuat sistem **bebas risiko banned selamanya** karena server Anda t
    - **Request Body**:
      ```json
      {
-       "text": "[not_body]",
-       "title": "[not_title]"
+       "text": "[notification]"
      }
      ```
+     *(Tips: Bisa juga klik tombol Magic Text `[...]` di samping kolom ➡️ pilih **Notification** / **Pemberitahuan** ➡️ pilih **Notification Text** (`[notification]`)).*
 3. **Simpan Macro**. Setiap ada transaksi masuk di HP, notifikasi otomatis diteruskan ke gateway dalam hitungan milidetik dan invoice langsung lunas!
 
 ---
