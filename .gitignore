@@ -1,0 +1,17 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Environment & Secrets
+.env
+
+# Data & Runtime Databases
+data/*.json
+!data/.gitkeep
+
+# macOS
+.DS_Store

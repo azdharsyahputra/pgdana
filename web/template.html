@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pembayaran QRIS — {{.MerchantName}}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00880C;
+            --primary-light: #EBF8EC;
+            --dark: #121826;
+            --gray: #64748B;
+            --gray-light: #F1F5F9;
+            --card-bg: #FFFFFF;
+            --success: #10B981;
+            --danger: #EF4444;
+            --warning: #F59E0B;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body {
+            background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--dark);
+        }
+        .container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+            position: relative;
+        }
+        .header {
+            background: #F8FAFC;
+            padding: 20px 24px;
+            border-bottom: 1px solid #E2E8F0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .merchant-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0F172A;
+        }
+        .invoice-id {
+            font-size: 12px;
+            color: var(--gray);
+            font-weight: 500;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .badge-pending { background: #FEF3C7; color: #92400E; }
+        .badge-paid { background: #D1FAE5; color: #065F46; }
+        .badge-expired { background: #FEE2E2; color: #991B1B; }
+
+        .content {
+            padding: 24px;
+            text-align: center;
+        }
+        .amount-card {
+            background: #F8FAFC;
+            border: 2px dashed #CBD5E1;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .amount-label {
+            font-size: 13px;
+            color: var(--gray);
+            margin-bottom: 4px;
+        }
+        .amount-val {
+            font-size: 32px;
+            font-weight: 800;
+            color: #0F172A;
+            letter-spacing: -0.5px;
+        }
+        .unique-alert {
+            font-size: 12px;
+            color: #B45309;
+            background: #FFFBEB;
+            padding: 6px 10px;
+            border-radius: 8px;
+            margin-top: 8px;
+            font-weight: 600;
+        }
+        .btn-copy {
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+        .btn-copy:hover { background: #F1F5F9; }
+
+        .qr-wrapper {
+            position: relative;
+            display: inline-block;
+            background: #FFFFFF;
+            padding: 16px;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid #E2E8F0;
+            margin-bottom: 16px;
+        }
+        .qr-img {
+            display: block;
+            width: 240px;
+            height: 240px;
+            border-radius: 12px;
+        }
+        .timer-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray);
+            margin-bottom: 16px;
+        }
+        .timer-countdown {
+            color: var(--danger);
+            font-weight: 700;
+        }
+        .supported-wallets {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--gray);
+            border-top: 1px solid #F1F5F9;
+            padding-top: 16px;
+        }
+        .footer-note {
+            font-size: 11px;
+            color: var(--gray);
+            margin-top: 12px;
+        }
+
+        /* Success Overlay */
+        .success-overlay {
+            display: none;
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.98);
+            z-index: 50;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            text-align: center;
+            animation: fadeIn 0.3s ease;
+        }
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: #D1FAE5;
+            color: #059669;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            margin-bottom: 16px;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <div class="merchant-title">{{.MerchantName}}</div>
+            <div class="invoice-id">{{.Invoice.ID}}</div>
+        </div>
+        <div id="badge-status" class="badge badge-pending">
+            <span>●</span> <span id="badge-text">Menunggu Pembayaran</span>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="amount-card">
+            <div class="amount-label">Total Tagihan (Transfer Sesuai Nominal)</div>
+            <div class="amount-val" id="amount-text">Rp {{.FormattedAmount}}</div>
+            {{if gt .Invoice.UniqueCode 0}}
+            <div class="unique-alert">
+                ⚠️ Wajib transfer tepat sampai 3 digit terakhir (termasuk kode unik <strong>{{.Invoice.UniqueCode}}</strong>) agar pembayaran terverifikasi otomatis!
+            </div>
+            {{end}}
+            <button class="btn-copy" onclick="copyAmount()">📋 Salin Nominal</button>
+        </div>
+
+        <div class="qr-wrapper">
+            <img class="qr-img" id="qr-image" src="/api/qris/qr/{{.Invoice.ID}}" alt="QRIS Code">
+        </div>
+
+        <div class="timer-box" id="timer-box">
+            <span>Selesaikan dalam:</span>
+            <span class="timer-countdown" id="timer">--:--</span>
+        </div>
+
+        <div class="supported-wallets">
+            <span>Scan via:</span>
+            <strong>BCA</strong> • <strong>GoPay</strong> • <strong>Mandiri</strong> • <strong>DANA</strong> • <strong>ShopeePay</strong> • <strong>OVO</strong>
+        </div>
+
+        <div class="footer-note">
+            Verifikasi otomatis tanpa perlu upload bukti transfer.
+        </div>
+    </div>
+
+    <!-- Success Overlay -->
+    <div class="success-overlay" id="success-overlay">
+        <div class="success-icon">✓</div>
+        <h2 style="font-size: 22px; font-weight: 800; color: #065F46; margin-bottom: 8px;">Pembayaran Lunas!</h2>
+        <p style="color: #4B5563; font-size: 14px; margin-bottom: 20px;">
+            Terima kasih, dana sebesar <strong>Rp {{.FormattedAmount}}</strong> telah berhasil diverifikasi oleh sistem.
+        </p>
+        <div style="font-size: 12px; color: #9CA3AF;">ID: {{.Invoice.ID}}</div>
+    </div>
+</div>
+
+<script>
+    const invoiceId = "{{.Invoice.ID}}";
+    const expiresTimestamp = new Date("{{.Invoice.ExpiresAt.Format "2006-01-02T15:04:05Z07:00"}}").getTime();
+    const totalAmount = "{{.Invoice.TotalAmount}}";
+    let isPaid = {{if eq .Invoice.Status "PAID"}}true{{else}}false{{end}};
+
+    function copyAmount() {
+        navigator.clipboard.writeText(totalAmount).then(() => {
+            alert("Nominal Rp " + Number(totalAmount).toLocaleString("id-ID") + " berhasil disalin!");
+        });
+    }
+
+    function updateTimer() {
+        if (isPaid) return;
+        const now = new Date().getTime();
+        const diff = expiresTimestamp - now;
+
+        if (diff <= 0) {
+            document.getElementById('timer').innerText = "KEDALUWARSA";
+            document.getElementById('badge-status').className = "badge badge-expired";
+            document.getElementById('badge-text').innerText = "Kedaluwarsa";
+            return;
+        }
+
+        const mins = Math.floor(diff / 60000);
+        const secs = Math.floor((diff % 60000) / 1000);
+        document.getElementById('timer').innerText = 
+            String(mins).padStart(2, '0') + ":" + String(secs).padStart(2, '0');
+    }
+
+    setInterval(updateTimer, 1000);
+    updateTimer();
+
+    // Auto-polling status every 3 seconds
+    async function checkStatus() {
+        if (isPaid) return;
+        try {
+            const res = await fetch('/api/qris/status/' + invoiceId);
+            const data = await res.json();
+            if (data.success && data.invoice.status === 'PAID') {
+                isPaid = true;
+                document.getElementById('success-overlay').style.display = 'flex';
+                document.getElementById('badge-status').className = "badge badge-paid";
+                document.getElementById('badge-text').innerText = "Lunas";
+            }
+        } catch (e) {
+            console.error("Poll error:", e);
+        }
+    }
+
+    if (!isPaid) {
+        setInterval(checkStatus, 3000);
+        checkStatus();
+    } else {
+        document.getElementById('success-overlay').style.display = 'flex';
+    }
+</script>
+
+</body>
+</html>
