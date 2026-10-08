@@ -276,17 +276,21 @@
     setInterval(updateTimer, 1000);
     updateTimer();
 
-    // Auto-polling status every 3 seconds
+    function markAsPaid() {
+        if (isPaid) return;
+        isPaid = true;
+        document.getElementById('success-overlay').style.display = 'flex';
+        document.getElementById('badge-status').className = "badge badge-paid";
+        document.getElementById('badge-text').innerText = "Lunas";
+    }
+
     async function checkStatus() {
         if (isPaid) return;
         try {
             const res = await fetch('/api/qris/status/' + invoiceId);
             const data = await res.json();
             if (data.success && data.invoice.status === 'PAID') {
-                isPaid = true;
-                document.getElementById('success-overlay').style.display = 'flex';
-                document.getElementById('badge-status').className = "badge badge-paid";
-                document.getElementById('badge-text').innerText = "Lunas";
+                markAsPaid();
             }
         } catch (e) {
             console.error("Poll error:", e);
@@ -294,10 +298,39 @@
     }
 
     if (!isPaid) {
-        setInterval(checkStatus, 3000);
-        checkStatus();
+        // ⚡ Real-Time SSE (Server-Sent Events) - 0ms Latency
+        if (window.EventSource) {
+            try {
+                const evtSource = new EventSource('/api/qris/stream/' + invoiceId);
+                evtSource.onmessage = function(e) {
+                    try {
+                        const data = JSON.parse(e.data);
+                        if (data.paid || data.status === 'PAID') {
+                            markAsPaid();
+                            evtSource.close();
+                        } else if (data.status === 'EXPIRED') {
+                            document.getElementById('timer').innerText = "KEDALUWARSA";
+                            document.getElementById('badge-status').className = "badge badge-expired";
+                            document.getElementById('badge-text').innerText = "Kedaluwarsa";
+                            evtSource.close();
+                        }
+                    } catch (err) {}
+                };
+                evtSource.onerror = function() {
+                    // Fallback to light poll if SSE connection is interrupted
+                    if (!isPaid) {
+                        checkStatus();
+                    }
+                };
+            } catch (err) {
+                console.warn("SSE init failed:", err);
+            }
+        }
+
+        // Safety fallback polling (every 5 seconds)
+        setInterval(checkStatus, 5000);
     } else {
-        document.getElementById('success-overlay').style.display = 'flex';
+        markAsPaid();
     }
 </script>
 

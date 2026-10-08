@@ -186,6 +186,86 @@ func (h *APIHandler) HandleGetStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleStreamInvoice provides real-time status updates via Server-Sent Events (SSE).
+func (h *APIHandler) HandleStreamInvoice(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = r.URL.Query().Get("id")
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming tidak didukung pada koneksi ini", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	inv, exists := h.store.Get(id)
+	if !exists {
+		fmt.Fprintf(w, "event: error\ndata: %s\n\n", `{"message":"Invoice tidak ditemukan"}`)
+		flusher.Flush()
+		return
+	}
+
+	// If already paid or expired, send immediately and close
+	if inv.Status == invoice.StatusPaid || inv.Status == invoice.StatusExpired {
+		data, _ := json.Marshal(map[string]interface{}{
+			"paid":    inv.Status == invoice.StatusPaid,
+			"status":  inv.Status,
+			"invoice": inv,
+		})
+		fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
+		return
+	}
+
+	// Send initial status
+	initialData, _ := json.Marshal(map[string]interface{}{
+		"paid":    false,
+		"status":  inv.Status,
+		"invoice": inv,
+	})
+	fmt.Fprintf(w, "data: %s\n\n", initialData)
+	flusher.Flush()
+
+	// Subscribe to live updates
+	ch, unsubscribe := h.store.Subscribe(id)
+	defer unsubscribe()
+
+	keepAliveTicker := time.NewTicker(15 * time.Second)
+	defer keepAliveTicker.Stop()
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case <-keepAliveTicker.C:
+			// Send comment ping to prevent proxy/nginx timeout
+			fmt.Fprintf(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case updatedInv, ok := <-ch:
+			if !ok {
+				return
+			}
+			data, _ := json.Marshal(map[string]interface{}{
+				"paid":    updatedInv.Status == invoice.StatusPaid,
+				"status":  updatedInv.Status,
+				"invoice": updatedInv,
+			})
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+
+			if updatedInv.Status == invoice.StatusPaid || updatedInv.Status == invoice.StatusExpired {
+				return
+			}
+		}
+	}
+}
+
 // HandleGetQRPNG returns the raw PNG image of the QR Code.
 func (h *APIHandler) HandleGetQRPNG(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")

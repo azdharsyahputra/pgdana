@@ -16,6 +16,7 @@ type Store struct {
 	mu           sync.RWMutex
 	invoices     map[string]*Invoice
 	mutasis      []*MutasiRecord
+	subscribers  map[string][]chan *Invoice
 	filePath     string
 	stopExpireCh chan struct{}
 }
@@ -25,6 +26,7 @@ func NewStore(dataFile string) (*Store, error) {
 	s := &Store{
 		invoices:     make(map[string]*Invoice),
 		mutasis:      make([]*MutasiRecord, 0),
+		subscribers:  make(map[string][]chan *Invoice),
 		filePath:     dataFile,
 		stopExpireCh: make(chan struct{}),
 	}
@@ -118,7 +120,48 @@ func (s *Store) MarkPaid(invoiceID string, mutasi *MutasiRecord) (*Invoice, erro
 	}
 
 	copyInv := *inv
+
+	// Broadcast to active SSE subscribers
+	if subs, ok := s.subscribers[invoiceID]; ok {
+		for _, ch := range subs {
+			select {
+			case ch <- &copyInv:
+			default:
+			}
+		}
+	}
+
 	return &copyInv, nil
+}
+
+// Subscribe listens for live status updates on a specific invoice (for SSE).
+func (s *Store) Subscribe(invoiceID string) (chan *Invoice, func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ch := make(chan *Invoice, 5)
+	s.subscribers[invoiceID] = append(s.subscribers[invoiceID], ch)
+
+	unsubscribe := func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		subs, exists := s.subscribers[invoiceID]
+		if !exists {
+			return
+		}
+		for i, sub := range subs {
+			if sub == ch {
+				s.subscribers[invoiceID] = append(subs[:i], subs[i+1:]...)
+				break
+			}
+		}
+		if len(s.subscribers[invoiceID]) == 0 {
+			delete(s.subscribers, invoiceID)
+		}
+		close(ch)
+	}
+
+	return ch, unsubscribe
 }
 
 // RecordUnmatchedMutasi records incoming funds that did not match any invoice for auditing.

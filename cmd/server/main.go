@@ -50,6 +50,7 @@ func main() {
 	mux.HandleFunc("GET /api/health", apiHandler.HandleHealth)
 
 	// QRIS Generation & Status
+	mux.HandleFunc("GET /api/qris/stream/{id}", apiHandler.HandleStreamInvoice)
 	mux.HandleFunc("POST /api/qris/create", apiHandler.HandleCreateQRIS)
 	mux.HandleFunc("GET /api/qris/create", apiHandler.HandleCreateQRIS)
 	mux.HandleFunc("GET /api/qris/status/{id}", apiHandler.HandleGetStatus)
@@ -71,7 +72,7 @@ func main() {
 		Addr:         ":" + cfg.Port,
 		Handler:      loggingMiddleware(corsMiddleware(mux)),
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 0, // Disabled for long-lived Server-Sent Events (SSE)
 		IdleTimeout:  60 * time.Second,
 	}
 
